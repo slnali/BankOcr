@@ -11,3 +11,9 @@ dotnet run {{LOCAL PATH}}/BankOcr/userStory.txt
 
 Should see output:
 **Writing output to output-userStory.txt**
+
+## Limitations of poc
+
+- edge case handling
+- error handling
+- code coupling
