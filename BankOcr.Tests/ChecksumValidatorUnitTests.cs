@@ -5,6 +5,18 @@ namespace BankOcr.Tests
     [TestFixture]
     public class ChecksumValidatorUnitTests
     {
+
+        public List<INumber> ConvertStringToListOfNumbers(string input)
+        {
+            List<INumber> output = new();
+            foreach (var c in input)
+            {
+                output.Add(new Number() { Value = int.Parse(c.ToString()) });
+            }
+
+            return output;
+        }
+
         [TestCase("711111111", true)]
         [TestCase("123456789", true)]
         [TestCase("490867715", true)]
@@ -13,7 +25,8 @@ namespace BankOcr.Tests
         [TestCase("012345678", false)]
         public void TestIsCheckSumValid(string accountNumber, bool expected)
         {
-            var result = ChecksumValidator.IsCheckSumValid(accountNumber);
+
+            var result = ChecksumValidator.IsCheckSumValid(ConvertStringToListOfNumbers(accountNumber));
             result.Should().Be(expected);
         }
 
@@ -30,7 +43,7 @@ namespace BankOcr.Tests
         [TestCase("490067715", new[] { "490067115", "490067719", "490867715" })]
         public void TestHandleErrNum(string accountNumber, string[] expected)
         {
-            var result = ChecksumValidator.FixInvalidNumber(accountNumber);
+            var result = ChecksumValidator.FixInvalidNumber(ConvertStringToListOfNumbers(accountNumber));
             result.Should().BeEquivalentTo(expected);
         }
     }

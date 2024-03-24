@@ -21,38 +21,24 @@ namespace BankOcr
 
         public void ProcessFile(string file)
         {
-            var rows = File.ReadLines(file).ToList();
-            List<string> output = ParseOcrNumbers(rows);
-            GenerateOutputFile(file, output);
+            var fileLines = File.ReadLines(file).ToList();
+            var accountNumbers = ParseOcrNumbers(fileLines);
+            GenerateOutputFile(file, accountNumbers);
         }
 
-        private static void GenerateOutputFile(string file, List<string> output)
+        private void GenerateOutputFile(string file, List<List<INumber>> accountNumbers)
         {
             List<string> fileOutput = new();
-            foreach (var o in output)
+            foreach (var accountNumber in accountNumbers)
             {
-                if (ChecksumValidator.IsCheckSumValid(o))
+                if (ChecksumValidator.IsCheckSumValid(accountNumber))
                 {
-                    fileOutput.Add(o);
+                    fileOutput.Add(convertToAccountNumberText(accountNumber));
                 }
 
                 else
                 {
-                    var nums = ChecksumValidator.FixInvalidNumber(o);
-                    if (nums.Count == 0)
-                    {
-                        fileOutput.Add(o + " ILL");
-                    }
-                    else if (nums.Count == 1)
-                    {
-                        fileOutput.Add(nums[0]);
-                    }
-                    else
-                    {
-                        // AMB output
-                        string ambOutput = $"{o} AMB [{string.Join(',', nums.Select(n => $"'{n}'"))}]";
-                        fileOutput.Add(ambOutput);
-                    }
+                    HandleInvalidNumber(fileOutput, accountNumber);
                 }
             }
 
@@ -62,12 +48,36 @@ namespace BankOcr
             File.WriteAllLines($"{outputFile}", fileOutput);
         }
 
-        private List<string> ParseOcrNumbers(List<string> rows)
+        private void HandleInvalidNumber(List<string> fileOutput, List<INumber> accountNumber)
         {
-            List<string> output = new();
+            var potentialAccountNumbers = ChecksumValidator.FixInvalidNumber(accountNumber);
+            if (potentialAccountNumbers.Count == 0)
+            {
+                fileOutput.Add(convertToAccountNumberText(accountNumber) + " ILL");
+            }
+            else if (potentialAccountNumbers.Count == 1)
+            {
+                fileOutput.Add(potentialAccountNumbers[0]);
+            }
+            else
+            {
+                // AMB output
+                string ambOutput = $"{convertToAccountNumberText(accountNumber)} AMB [{string.Join(',', potentialAccountNumbers.Select(n => $"'{n}'"))}]";
+                fileOutput.Add(ambOutput);
+            }
+        }
+
+        private string convertToAccountNumberText(List<INumber> accountNumber)
+        {
+            return string.Join("", accountNumber.Select(n => (n as Number).Value));
+        }
+
+        private List<List<INumber>> ParseOcrNumbers(List<string> rows)
+        {
+            List<List<INumber>> rowsOfAccountNumbers = new();
             for (int startOfNewEntry = 0; startOfNewEntry <= rows.Count(); startOfNewEntry += 4)
             {
-                var sb = new StringBuilder();
+                List<INumber> accountNumber = new();
 
                 for (int c = 0; c <= 24; c += 3)
                 {
@@ -76,28 +86,29 @@ namespace BankOcr
                         rows[startOfNewEntry].Substring(c, 3),
                         rows[startOfNewEntry + 1].Substring(c, 3),
                         rows[startOfNewEntry + 2].Substring(c, 3));
-                    sb.Append(num);
+                    accountNumber.Add(num);
                 }
-                output.Add(sb.ToString());
+                rowsOfAccountNumbers.Add(accountNumber);
             }
 
-            return output;
+
+            return rowsOfAccountNumbers;
         }
 
-        public string GetNumber(string firstLine, string secondLine, string thirdLine)
+        public INumber GetNumber(string firstLine, string secondLine, string thirdLine)
         {
             string numberKey = $"{firstLine}{secondLine}{thirdLine}";
 
             if (ocrToNumberMappings.TryGetValue(numberKey, out int number))
             {
-                return number.ToString();
+                return new Number() { Value = number };
             }
 
             // HandleIllNumber
-            return DeterminePossibleNumber(firstLine, secondLine, thirdLine);
+            return GetPossibleNumbers(firstLine, secondLine, thirdLine);
         }
 
-        private string DeterminePossibleNumber(string firstLine, string secondLine, string thirdLine)
+        private PossibleNumber GetPossibleNumbers(string firstLine, string secondLine, string thirdLine)
         {
             Dictionary<int, int> possibleNumToCount = new();
 
@@ -124,7 +135,7 @@ namespace BankOcr
             var possibleNums = possibleNumToCount.Where(pair => pair.Value == maxCountValue).Select(pair => pair.Key).ToList();
 
             // let the similarity function in checksum validator evaluate if other possible numbers match
-            return possibleNums[0].ToString();
+            return new PossibleNumber() { Value = possibleNums };
         }
 
         private void UpdatePossibleNumCount(Dictionary<int, int> possibleNumToCount, int number)

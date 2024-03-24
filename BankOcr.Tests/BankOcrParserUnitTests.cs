@@ -34,20 +34,21 @@ namespace BankOcr.Tests
             var result = _parser.GetNumber(firstLine, secondLine, thirdLine);
 
             // Assert
-            result.Should().Be(expected.ToString());
+
+            (result as Number).Value.Should().Be(expected);
 
         }
 
-        [TestCase("   ", " _|", "  |", 1)]
-        [TestCase("   ", "| |", "|_|", 0)]
-        [TestCase(" _ ", " _ ", " _|", 3)]
-        public void TestGetNumberUnknowns(string firstLine, string secondLine, string thirdLine, int expected)
+        [TestCase("   ", " _|", "  |", new[] { 1, 4 })]
+        [TestCase("   ", "| |", "|_|", new[] { 0 })]
+        [TestCase(" _ ", " _ ", " _|", new[] { 3, 5, 9 })]
+        public void TestGetNumberUnknowns(string firstLine, string secondLine, string thirdLine, int[] expected)
         {
             // Act
             var result = _parser.GetNumber(firstLine, secondLine, thirdLine);
 
             // Assert
-            result.Should().Be(expected.ToString());
+            (result as PossibleNumber).Value.Should().BeEquivalentTo(expected);
         }
     }
 }
